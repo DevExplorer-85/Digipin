@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DigiPIN Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'Avenir', 'Helvetica', 'Arial', 'sans-serif'],
+          },
+        },
+      },
+    }
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js" onerror="window.qrCodeLoadError=true;"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.19.0",
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.45.0"
+  }
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-primary: #111827;
+    --bg-secondary: #1f2937;
+    --bg-tertiary: #374151;
+    --border-color: #4b5563;
+    --text-primary: #f9fafb;
+    --text-secondary: #d1d5db;
+    --text-tertiary: #9ca3af;
+    --accent-primary: #4f46e5;
+    --accent-primary-hover: #4338ca;
+    --accent-secondary: #818cf8;
+    --danger-primary: #ef4444;
+    --danger-primary-hover: #dc2626;
+  }
+  
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* --- Global Component Styles --- */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 3px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--border-color);
+  }
+
+  /* --- Page Transitions --- */
+  .page-container {
+    perspective: 1500px;
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+  
+  .page {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
+    transition: transform 0.8s cubic-bezier(0.76, 0, 0.24, 1), opacity 0.8s ease-in-out;
+    overflow-y: auto;
+  }
+  
+  /* Landing State */
+  .page-container.show-landing .page-landing { transform: rotateY(0deg); opacity: 1; }
+  .page-container.show-landing .page-generator { transform: rotateY(90deg) translateZ(150px); opacity: 0; }
+  .page-container.show-landing .page-sos { transform: translateY(100%); opacity: 0; }
+
+  /* Generator State */
+  .page-container.show-generator .page-landing { transform: rotateY(-90deg) translateZ(150px); opacity: 0; }
+  .page-container.show-generator .page-generator { transform: rotateY(0deg); opacity: 1; }
+  .page-container.show-generator .page-sos { transform: translateY(100%); opacity: 0; }
+
+  /* SOS State */
+  .page-container.show-sos .page { transition: transform 0.6s ease-out, opacity 0.6s ease-out; }
+  .page-container.show-sos .page-landing,
+  .page-container.show-sos .page-generator { transform: scale(0.95); opacity: 0.5; filter: blur(4px); }
+  .page-container.show-sos .page-sos { transform: translateY(0%); opacity: 1; }
+
+  /* --- Animations --- */
+  @keyframes gradient-animation {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  
+  .animated-gradient-background {
+    background: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #111827);
+    background-size: 400% 400%;
+    animation: gradient-animation 20s ease infinite;
+  }
+  
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  .animate-fade-in { animation: fade-in 0.6s ease-out forwards; }
+  
+  @keyframes pop-in {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .animate-pop-in { animation: pop-in 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+  
+  @keyframes slide-in-bottom {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-slide-in-bottom { animation: slide-in-bottom 0.5s ease-out forwards; opacity: 0; }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+  }
+  .animate-sos-pulse { animation: pulse 2s infinite; }
+  
+  @keyframes shimmer {
+    0% { background-position: -1000px 0; }
+    100% { background-position: 1000px 0; }
+  }
+  
+  .shimmer-placeholder {
+    background: #2a3547;
+    background-image: linear-gradient(to right, #2a3547 0%, #374151 20%, #2a3547 40%, #2a3547 100%);
+    background-repeat: no-repeat;
+    background-size: 2000px 100%;
+    display: inline-block;
+    position: relative;
+    animation: shimmer 2s linear infinite;
+  }
+
+  /* SOS background effect */
+  .sos-page-background {
+    background-color: #0c0a09;
+    position: relative;
+    overflow: hidden;
+  }
+  .sos-page-background::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 150%;
+    height: 150%;
+    background: radial-gradient(circle, rgba(220, 38, 38, 0.15) 0%, rgba(220, 38, 38, 0) 60%);
+    animation: spin 30s linear infinite;
+    transform-origin: center center;
+  }
+  @keyframes spin { from { transform: translate(-50%,-50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); }}
+</style>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

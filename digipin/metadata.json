@@ -1,0 +1,5 @@
+{
+  "name": "DigiPIN",
+  "description": "A web application to generate and look up DigiPINs for any location. Users can search for a place or use their current location to get a unique, shareable DigiPIN with a corresponding QR code.",
+  "requestFramePermissions": []
+}
